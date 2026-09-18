@@ -1,0 +1,27 @@
+{
+  "name": "ca-guru-bot",
+  "version": "1.0.0",
+  "description": "CA Guru WhatsApp knowledge-base bot on wacrm, answering from a curated FAQ with OpenAI",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "ingest": "node scripts/ingest.js",
+    "check:kb": "node scripts/check-kb.js",
+    "chat": "node scripts/chat.js",
+    "check:wacrm": "node scripts/check-wacrm.js",
+    "webhook:list": "node scripts/register-webhook.js --list",
+    "webhook:register": "node scripts/register-webhook.js --register",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "mongodb": "^6.12.0",
+    "openai": "^4.67.3"
+  }
+}

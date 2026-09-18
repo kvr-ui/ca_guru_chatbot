@@ -1,0 +1,14 @@
+# TLS in front of the bot (compose `tls` profile). Only the webhook and /health are public;
+# /admin stays reachable from the box itself (curl 127.0.0.1:3007/admin/...).
+{$PUBLIC_HOST} {
+	encode gzip
+
+	# wacrm signs the RAW body — nothing here may rewrite it.
+	@public path /webhooks/wacrm /health
+	handle @public {
+		reverse_proxy bot:3000
+	}
+	handle {
+		respond 404
+	}
+}

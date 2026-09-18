@@ -1,0 +1,8 @@
+# Keep secrets and local state out of the build context (the Dockerfile copies only what it needs).
+.env
+.env.*
+node_modules/
+data/
+tests/
+docs/
+*.log

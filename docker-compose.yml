@@ -1,0 +1,52 @@
+# One replica only: handovers, opt-outs and the per-contact reply queue are cached per process.
+
+services:
+  bot:
+    build: .
+    image: ca-guru-bot:latest
+    container_name: ca-guru-bot
+    restart: unless-stopped
+    # BOT_ALLOWLIST lives in here and is what stands between this container and every student
+    # who messages the number. Check it before every `up -d`.
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      NODE_ENV: production
+    ports:
+      # Localhost only: the bot speaks plain HTTP. TLS comes from the caddy profile below or a
+      # proxy you already run. Pick a free host port if 3007 is taken on your box.
+      - "127.0.0.1:3007:3000"
+    volumes:
+      - bot-data:/app/data
+    init: true
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # PUBLIC_HOST=guru-bot.focasedu.com docker compose --profile tls up -d
+  # Only if nothing else owns ports 80/443 on the box — otherwise point your existing
+  # nginx/Caddy at 127.0.0.1:3007 and publish just /webhooks/wacrm.
+  caddy:
+    image: caddy:2-alpine
+    container_name: ca-guru-bot-caddy
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on: [bot]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOST: "${PUBLIC_HOST:-localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  bot-data:
+  caddy-data:
+  caddy-config:

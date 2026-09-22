@@ -127,8 +127,13 @@ export const render = (step) =>
 export const introMessage = () =>
   `Hi! 👋 Welcome to ${config.bot.name}. A few quick questions so we can guide you better.\n\n${render(STEPS[FIRST_STEP])}`;
 
-export function calculatorMessage() {
-  const url = config.bot.calculatorUrl;
+/**
+ * A `{waId}` in CALCULATOR_URL becomes the lead's number, so each lead gets their own link. The
+ * campaign dashboard's /calc/<waId> records the click (its chat shows it) and redirects on to
+ * the calculator.
+ */
+export function calculatorMessage(waId = '') {
+  const url = config.bot.calculatorUrl.replaceAll('{waId}', encodeURIComponent(waId));
   if (!url) console.warn('CALCULATOR_URL is not set — sending the calculator message without a link');
   return url ? `${config.bot.calculatorMessage}\n${url}` : config.bot.calculatorMessage;
 }
@@ -254,7 +259,7 @@ async function advance(flow, step, { key, percent }) {
   await save(doc);
   return next
     ? { reason: 'flow_answer', step: next, replies: [render(STEPS[next])] }
-    : { reason: 'flow_done', step: null, replies: [calculatorMessage()] };
+    : { reason: 'flow_done', step: null, replies: [calculatorMessage(flow.waId)] };
 }
 
 /**

@@ -118,6 +118,7 @@ export const config = {
     ),
     optInMessage: str('OPT_IN_MESSAGE', "Welcome back! 👋 Ask me anything about the CA Guru app."),
     // The qualifying questions a new lead gets after the trigger phrase end with this link.
+    // `{waId}` in it becomes the lead's number (see calculatorMessage).
     calculatorUrl: str('CALCULATOR_URL'),
     calculatorMessage: str(
       'CALCULATOR_MESSAGE',

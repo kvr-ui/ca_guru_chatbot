@@ -73,7 +73,8 @@ collection. Everyone else is logged as `not_triggered` and left to the team. Bla
 
 **Qualifying questions:** a brand-new lead (first trigger phrase) is asked first-time or
 re-appearing, then down the branch: Sep 26 groups, when the other group is planned, confidence,
-Jan 27 groups, classes, syllabus %, tests. Every path ends with the `CALCULATOR_URL` link. Replies
+Jan 27 groups, classes, syllabus %, tests. Every path ends with the `CALCULATOR_URL` link; a `{waId}`
+in it becomes the lead's number, so the campaign dashboard's `/calc/{waId}` can record the click. Replies
 are read by number, then keywords, then the model; an unclear reply is asked once more, then
 skipped. A question asked mid-way is answered and the pending question repeated; a handover ends
 the questions, and an unfinished set is dropped after `FLOW_EXPIRY_HOURS`. Answers are kept in

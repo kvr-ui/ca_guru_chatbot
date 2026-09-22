@@ -320,6 +320,18 @@ test('re-appearing, both groups in Sep 26: asked about confidence, then the calc
   });
 });
 
+test('a {waId} in the calculator link becomes the lead\'s number, so the click can be tracked', async () => {
+  await asLead(async () => {
+    config.bot.calculatorUrl = 'https://example.test/calc/{waId}';
+    const lead = ALLOWED[1];
+    await handleEvent(received(lead, 'your last attempt'));
+    await handleEvent(received(lead, 're-appearing'));
+    await handleEvent(received(lead, 'g1 and g2'));
+    await handleEvent(received(lead, 'no'));
+    assert.match(lastSent(), new RegExp(`example\\.test/calc/${lead}$`));
+  });
+});
+
 test('skipped Sep 26 joins the first-timer questions after picking the Jan 27 group', async () => {
   await asLead(async () => {
     const lead = ALLOWED[2];

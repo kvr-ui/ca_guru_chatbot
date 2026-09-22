@@ -1,6 +1,6 @@
-import { config, conversationKey } from './config.js';
+import { config, conversationKey } from '../config.js';
 import { answer } from './ai.js';
-import { logTurn, lastTurns } from './conversations.js';
+import { logTurn, lastTurns } from '../store/conversations.js';
 import { isOptedOut, isOptOutRequest, isOptInRequest, optOut, optIn } from './optout.js';
 import { pauseForHandover, isPaused } from './handover.js';
 

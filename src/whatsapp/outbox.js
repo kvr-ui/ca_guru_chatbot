@@ -1,7 +1,7 @@
-import { contactKey } from './config.js';
-import { collection } from './mongo.js';
+import { contactKey } from '../config.js';
+import { collection } from '../store/mongo.js';
 import { sendText, MAX_TEXT } from './wacrm.js';
-import { pauseForHandover } from './handover.js';
+import { pauseForHandover } from '../bot/handover.js';
 
 /**
  * Sending, and telling our own sends apart from staff replies.

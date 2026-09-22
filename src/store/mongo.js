@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import { config } from './config.js';
+import { config } from '../config.js';
 
 /**
  * Lazy singleton connection to the bot's own database (CA-Guru-bot). Indexes are created on

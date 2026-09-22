@@ -4,7 +4,7 @@
 // Docs: Focas-Production/Focas-WA/docs/API-DOCS.md — POST /api/v1/messages, bearer key,
 // E.164 numbers, { data } / { error } envelopes, 120 requests/minute per key.
 
-import { config } from './config.js';
+import { config } from '../config.js';
 
 // Retrying these changes nothing — the key, the scopes or the payload have to change first.
 const PERMANENT_CODES = new Set(['unauthorized', 'forbidden', 'bad_request', 'not_found']);

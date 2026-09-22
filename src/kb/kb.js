@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import OpenAI from 'openai';
-import { config } from './config.js';
+import { config } from '../config.js';
 
 const TEXT_EXT = new Set(['.md', '.markdown', '.txt', '.json']);
 let openai;

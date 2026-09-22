@@ -1,5 +1,5 @@
 import { config } from '../src/config.js';
-import { buildChunks } from '../src/kb.js';
+import { buildChunks } from '../src/kb/kb.js';
 
 /**
  * Sanity-checks knowledge/ after an edit:  npm run check:kb

@@ -1,10 +1,10 @@
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { assertConfig } from '../src/config.js';
-import { handleMessage } from '../src/handler.js';
-import { ensureIndex } from '../src/kb.js';
-import { resume } from '../src/handover.js';
-import { closeMongo } from '../src/mongo.js';
+import { handleMessage } from '../src/bot/handler.js';
+import { ensureIndex } from '../src/kb/kb.js';
+import { resume } from '../src/bot/handover.js';
+import { closeMongo } from '../src/store/mongo.js';
 
 // Terminal chat: the same brain as WhatsApp, no wacrm needed and nothing is sent.
 assertConfig({ requireWacrm: false });

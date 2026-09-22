@@ -1,5 +1,5 @@
 import { config } from '../src/config.js';
-import { check } from '../src/wacrm.js';
+import { check } from '../src/whatsapp/wacrm.js';
 
 // Verifies WACRM_BASE_URL / WACRM_API_KEY against /api/v1/me. Sends nothing.
 const result = await check();

@@ -1,9 +1,9 @@
 import { config, assertConfig } from './src/config.js';
-import { app } from './src/app.js';
-import { ensureIndex } from './src/kb.js';
-import { loadHandovers } from './src/handover.js';
-import { loadOptOuts } from './src/optout.js';
-import { closeMongo } from './src/mongo.js';
+import { app } from './src/http/app.js';
+import { ensureIndex } from './src/kb/kb.js';
+import { loadHandovers } from './src/bot/handover.js';
+import { loadOptOuts } from './src/bot/optout.js';
+import { closeMongo } from './src/store/mongo.js';
 
 assertConfig();
 

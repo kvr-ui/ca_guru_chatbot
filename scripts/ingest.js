@@ -1,5 +1,5 @@
 import { assertConfig } from '../src/config.js';
-import { ensureIndex, indexStats } from '../src/kb.js';
+import { ensureIndex, indexStats } from '../src/kb/kb.js';
 
 // Re-embeds knowledge/ now. The server also does this on boot and on POST /admin/reindex.
 assertConfig({ requireWacrm: false });

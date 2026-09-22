@@ -1,11 +1,11 @@
 import crypto from 'node:crypto';
 import express from 'express';
-import { config, conversationKey } from './config.js';
+import { config, conversationKey } from '../config.js';
 import { router as webhookRouter } from './webhook.js';
-import { ensureIndex, indexStats } from './kb.js';
-import { activeHandovers, resume } from './handover.js';
-import { conversation } from './conversations.js';
-import { check as checkWacrm } from './wacrm.js';
+import { ensureIndex, indexStats } from '../kb/kb.js';
+import { activeHandovers, resume } from '../bot/handover.js';
+import { conversation } from '../store/conversations.js';
+import { check as checkWacrm } from '../whatsapp/wacrm.js';
 
 export const app = express();
 app.disable('x-powered-by');

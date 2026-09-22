@@ -1,4 +1,4 @@
-import { config } from './config.js';
+import { config } from '../config.js';
 import { collection } from './mongo.js';
 
 /**

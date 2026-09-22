@@ -105,14 +105,20 @@ and no student data is sent to OpenAI beyond the message text itself.
 
 ## Code map
 
-| File | Role |
-|---|---|
-| `src/webhook.js` | Signed webhook, dedupe, allowlist, one-at-a-time processing per contact |
-| `src/handler.js` | The decision tree above; shared by the webhook and `npm run chat` |
-| `src/ai.js`, `src/kb.js` | Retrieval and the grounded answer |
-| `src/outbox.js` | Sending (with one 429 retry) and telling our sends apart from staff replies |
-| `src/wacrm.js`, `src/signature.js` | wacrm client and HMAC check (from drip_engine) |
-| `src/handover.js`, `src/optout.js`, `src/dedup.js`, `src/conversations.js` | State, from wati_chat-bot |
+| Folder | File | Role |
+|---|---|---|
+| `src/` | `config.js` | Env vars, defaults, and the startup check |
+| `src/http/` | `app.js` | Express app: `/health` and the token-guarded `/admin` routes |
+| | `webhook.js` | Signed webhook, dedupe, allowlist, one-at-a-time processing per contact |
+| | `signature.js` | HMAC check (from drip_engine) |
+| `src/bot/` | `handler.js` | The decision tree above; shared by the webhook and `npm run chat` |
+| | `ai.js` | The prompt (rules, price handover, English only) and the grounded answer |
+| | `handover.js`, `optout.js` | Chats paused for the team, STOP / START (from wati_chat-bot) |
+| `src/kb/` | `kb.js` | Loads `knowledge/`, embeds it, searches it |
+| `src/whatsapp/` | `wacrm.js` | wacrm client (from drip_engine) |
+| | `outbox.js` | Sending (with one 429 retry) and telling our sends apart from staff replies |
+| `src/store/` | `mongo.js`, `conversations.js`, `dedup.js` | MongoDB connection, chat log, webhook dedupe |
+| `src/providers/` | `openai.js` | OpenAI chat call |
 
 `npm test` runs everything against a fake wacrm/OpenAI and a throwaway local MongoDB database.
 # ca_guru_chatbot

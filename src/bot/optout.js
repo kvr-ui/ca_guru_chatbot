@@ -1,5 +1,5 @@
-import { conversationKey } from './config.js';
-import { collection } from './mongo.js';
+import { conversationKey } from '../config.js';
+import { collection } from '../store/mongo.js';
 
 /**
  * Students who sent STOP. Nothing they send afterwards is answered, except START, which opts

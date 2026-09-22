@@ -5,12 +5,12 @@
 
 import fs from 'node:fs';
 import express from 'express';
-import { config, contactKey } from './config.js';
+import { config, contactKey } from '../config.js';
 import { verifySignature } from './signature.js';
-import { isNewEvent } from './dedup.js';
-import { handleMessage } from './handler.js';
-import { deliver, onMessageSent } from './outbox.js';
-import { logTurn } from './conversations.js';
+import { isNewEvent } from '../store/dedup.js';
+import { handleMessage } from '../bot/handler.js';
+import { deliver, onMessageSent } from '../whatsapp/outbox.js';
+import { logTurn } from '../store/conversations.js';
 
 export const router = express.Router();
 

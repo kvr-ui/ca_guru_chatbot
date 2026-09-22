@@ -79,15 +79,15 @@ before(async () => {
     ADMIN_TOKEN: 'admin-test',
   });
 
-  ({ app } = await import('../src/app.js'));
-  ({ handleEvent } = await import('../src/webhook.js'));
-  ({ sign, verifySignature } = await import('../src/signature.js'));
-  ({ isPaused, _resetHandoverCache: resetHandover } = await import('../src/handover.js'));
-  ({ _resetOptOutCache: resetOptOut } = await import('../src/optout.js'));
-  ({ _resetHandlerState: resetHandler } = await import('../src/handler.js'));
-  ({ _resetOutbox: resetOutbox } = await import('../src/outbox.js'));
-  ({ answer } = await import('../src/ai.js'));
-  ({ getDb, closeMongo } = await import('../src/mongo.js'));
+  ({ app } = await import('../src/http/app.js'));
+  ({ handleEvent } = await import('../src/http/webhook.js'));
+  ({ sign, verifySignature } = await import('../src/http/signature.js'));
+  ({ isPaused, _resetHandoverCache: resetHandover } = await import('../src/bot/handover.js'));
+  ({ _resetOptOutCache: resetOptOut } = await import('../src/bot/optout.js'));
+  ({ _resetHandlerState: resetHandler } = await import('../src/bot/handler.js'));
+  ({ _resetOutbox: resetOutbox } = await import('../src/whatsapp/outbox.js'));
+  ({ answer } = await import('../src/bot/ai.js'));
+  ({ getDb, closeMongo } = await import('../src/store/mongo.js'));
 
   appServer = await listen(http.createServer(app));
   base = `http://127.0.0.1:${appServer.address().port}`;

@@ -1,5 +1,5 @@
-import { config, conversationKey } from './config.js';
-import { collection } from './mongo.js';
+import { config, conversationKey } from '../config.js';
+import { collection } from '../store/mongo.js';
 
 /**
  * Human handover. When the bot cannot answer, or a staff member replies from the wacrm inbox,

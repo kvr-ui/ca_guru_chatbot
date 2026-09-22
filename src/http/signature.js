@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { config } from './config.js';
+import { config } from '../config.js';
 
 /**
  * `X-Wacrm-Signature: t=<unix_seconds>,v1=<hex>` where v1 = HMAC-SHA256(secret, `${t}.${rawBody}`).

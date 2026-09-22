@@ -91,7 +91,7 @@ export async function onMessageSent(data = {}) {
   if (await ours()) return 'ours';
 
   console.log(`staff replied to ${key} from the inbox — bot paused for this chat`);
-  await pauseForHandover(key);
+  await pauseForHandover(key, { by: 'staff' });
   return 'staff';
 }
 

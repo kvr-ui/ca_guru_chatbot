@@ -422,6 +422,47 @@ test('a lead from before the questionnaire keeps plain Q&A', async () => {
   });
 });
 
+test('a new lead in a chat the bot had passed to the team gets the questions at once', async () => {
+  const lead = ALLOWED[4];
+  await handleEvent(received(lead, 'Explain AS 10'));
+  assert.equal(await isPaused(lead), true);
+  await asLead(async () => {
+    sends = [];
+    assert.equal((await handleEvent(received(lead, 'YOUR LAST ATTEMPT'))).reason, 'flow_start');
+    assert.match(lastSent(), /first time/);
+    assert.equal(await isPaused(lead), false);
+  });
+});
+
+test('a new lead in a chat staff are on waits, then gets the questions after the hold', async () => {
+  const lead = ALLOWED[5];
+  await handleEvent({
+    id: 'sent-staff-lead',
+    event: 'message.sent',
+    data: { wa_id: lead, whatsapp_message_id: 'wamid.staff-lead', text: 'Hi, this is Priya', sender_type: 'agent' },
+  });
+  await asLead(async () => {
+    sends = [];
+    assert.equal((await handleEvent(received(lead, 'YOUR LAST ATTEMPT'))).reason, 'with_team');
+    assert.equal(sends.length, 0);
+    const res = await fetch(`${base}/admin/handover/${lead}/resume`, { method: 'POST', headers: { authorization: 'Bearer admin-test' } });
+    assert.equal(res.status, 200);
+    assert.equal((await handleEvent(received(lead, 'hi'))).reason, 'flow_start');
+    assert.match(lastSent(), /first time/);
+    await handleEvent(received(lead, '2'));
+    assert.match(lastSent(), /Sep 26/);
+  });
+});
+
+test('a hold saved before its reason was recorded counts as staff', async () => {
+  const lead = ALLOWED[6];
+  await (await getDb()).collection('handovers').insertOne({ waId: lead, pausedUntil: new Date(Date.now() + 3_600_000) });
+  await asLead(async () => {
+    assert.equal((await handleEvent(received(lead, 'YOUR LAST ATTEMPT'))).reason, 'with_team');
+    assert.equal(sends.length, 0);
+  });
+});
+
 test('a question sent with the trigger phrase is answered, then the questions start', async () => {
   await asLead(async () => {
     const lead = ALLOWED[9];

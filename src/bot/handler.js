@@ -2,9 +2,9 @@ import { config, conversationKey } from '../config.js';
 import { answer } from './ai.js';
 import { logTurn, lastTurns } from '../store/conversations.js';
 import { isOptedOut, isOptOutRequest, isOptInRequest, optOut, optIn } from './optout.js';
-import { pauseForHandover, isPaused } from './handover.js';
+import { pauseForHandover, heldBy, resume } from './handover.js';
 import { isTriggerOnly, withoutTrigger } from './activation.js';
-import { startFlow, activeFlow, replyToFlow, pendingQuestion, endFlow, profileSummary } from './questionnaire.js';
+import { startFlow, queueFlow, isFlowQueued, activeFlow, replyToFlow, pendingQuestion, endFlow, profileSummary } from './questionnaire.js';
 
 /**
  * The bot's brain. Transport-agnostic: the wacrm webhook and the terminal chat (npm run chat)
@@ -80,7 +80,19 @@ async function route({ waId, name, text, type = 'text', justActivated = false })
   }
 
   // A person owns this chat: stay out of it, photos and voice notes included.
-  if (await isPaused(waId)) return silent('with_team');
+  const held = await heldBy(waId);
+  if (held && justActivated) {
+    // A new lead from the ad. If the hold is only the bot having passed an earlier question to
+    // the team, nobody is talking to them yet: take the chat back and ask the questions. If a
+    // person replied, stay out, and ask the questions once the hold ends.
+    if (held === 'bot') await resume(waId);
+    else {
+      await queueFlow(waId, { name });
+      return silent('with_team', { flowQueued: true });
+    }
+  } else if (held) {
+    return silent('with_team');
+  }
 
   if (!clean) {
     if (!MEDIA_TYPES.has(String(type)) || Date.now() - (mediaNoticeAt.get(waId) ?? 0) < MEDIA_NOTICE_EVERY_MS) {
@@ -97,7 +109,7 @@ async function route({ waId, name, text, type = 'text', justActivated = false })
 
   // A brand-new lead gets the qualifying questions first. A question sent along with the
   // trigger phrase is answered, then the questions follow.
-  if (justActivated) {
+  if (justActivated || (await isFlowQueued(waId))) {
     const intro = await startFlow(waId, { name });
     const rest = withoutTrigger(clean);
     if (!rest || GREETING.test(rest)) return { replies: [intro], meta: { reason: 'flow_start', step: 'status' } };

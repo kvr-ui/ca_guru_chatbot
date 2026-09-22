@@ -89,6 +89,7 @@ feature keep plain Q&A.
 | KB matched, but the model judges it unanswered (study doubts, account issues, "talk to a person") | Same handover |
 | OpenAI down | Same handover, so a person sees it |
 | Staff reply from the wacrm inbox | The bot pauses for that chat (it spots a `message.sent` whose wamid it did not send) |
+| A new lead's trigger phrase during a pause | If the bot started the pause (it passed a question to the team), the pause ends and the questions start. If a person replied, the bot stays silent and the questions start the first time the student writes after the pause |
 | `hi` / `thanks` / `ok` | Fixed welcome / thanks / no reply. Never reaches the KB, so greetings don't hand over |
 | Photo, voice note, file | One "please type your question" per 10 minutes |
 | STOP (and variants) | Confirmed once, then silence until START. "How do I stop notifications?" is still answered |

@@ -215,6 +215,20 @@ export async function startFlow(waId, { name = null } = {}) {
   return introMessage();
 }
 
+/**
+ * A new lead who arrived while a person held the chat: the questions wait, and start the first
+ * time the student writes after the hold ends.
+ */
+export async function queueFlow(waId, { name = null } = {}) {
+  const key = conversationKey(waId);
+  const doc = await load(key);
+  await save({ ...(doc ?? { waId: key, name, answers: {} }), step: null, flowQueued: true });
+}
+
+export async function isFlowQueued(waId) {
+  return Boolean((await load(conversationKey(waId)))?.flowQueued);
+}
+
 /** The unfinished flow for this contact, or null. A flow left silent for FLOW_EXPIRY_HOURS is dropped. */
 export async function activeFlow(waId) {
   const doc = await load(conversationKey(waId));

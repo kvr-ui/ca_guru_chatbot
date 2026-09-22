@@ -24,9 +24,10 @@ function buildContext(chunks) {
 /**
  * Answers a question from the knowledge base.
  * history: [{ role: 'user'|'assistant', content }]
+ * profile: one line about the student from the qualifying questions, or ''.
  * @returns {{ handover: boolean, text?: string, reason: string, sources: object[], model?: string }}
  */
-export async function answer(question, { history = [] } = {}) {
+export async function answer(question, { history = [], profile = '' } = {}) {
   // Short follow-ups such as "and on iPhone?" need the previous question's topic to retrieve anything.
   const previousQuestion = history.filter((m) => m.role === 'user').at(-1)?.content;
   const refersBack = /^(and\b|also\b|what about\b|how about\b)|\b(it|that|those|they|them|this)\b/i.test(question);
@@ -39,7 +40,11 @@ export async function answer(question, { history = [] } = {}) {
   if (!chunks.length) return { handover: true, reason: 'no_kb_match', sources };
 
   const res = await openai.complete({
-    system: [SYSTEM_PROMPT, buildContext(chunks)],
+    system: [
+      SYSTEM_PROMPT,
+      ...(profile ? [`ABOUT THIS STUDENT (their own answers; use only to tailor the reply, never as a source of facts): ${profile}`] : []),
+      buildContext(chunks),
+    ],
     history,
     question,
   });

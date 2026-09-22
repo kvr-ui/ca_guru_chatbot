@@ -117,6 +117,14 @@ export const config = {
       "Done — you won't get any more replies from us. Send START anytime if you'd like to chat again."
     ),
     optInMessage: str('OPT_IN_MESSAGE', "Welcome back! 👋 Ask me anything about the CA Guru app."),
+    // The qualifying questions a new lead gets after the trigger phrase end with this link.
+    calculatorUrl: str('CALCULATOR_URL'),
+    calculatorMessage: str(
+      'CALCULATOR_MESSAGE',
+      'Thanks for sharing! 🙌 Take this small assessment and see what your chances are in Jan 27 👇'
+    ),
+    // An unfinished questionnaire left silent this long is dropped; the bot just answers questions.
+    flowExpiryMs: num('FLOW_EXPIRY_HOURS', 24) * 3_600_000,
   },
 
   mongo: {

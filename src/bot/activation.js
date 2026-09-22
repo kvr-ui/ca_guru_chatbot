@@ -31,6 +31,13 @@ export function hasTrigger(text) {
 /** True when the message is nothing but the trigger phrase, so there is no question to answer. */
 export const isTriggerOnly = (text) => triggerEnabled() && normalize(text) === phrase();
 
+/** The message with the trigger phrase taken out, normalised: "Hi, YOUR LAST ATTEMPT!" -> "hi". */
+export function withoutTrigger(text) {
+  const p = phrase();
+  const n = normalize(text);
+  return p ? ` ${n} `.replace(` ${p} `, ' ').trim() : n;
+}
+
 /**
  * Fails open to "not activated": if the database is unreachable an unknown contact is left to
  * the team rather than the bot answering someone who never sent the phrase.
@@ -49,19 +56,36 @@ export async function isActivated(waId) {
   }
 }
 
-/** Memory first, so the lead is answered even if the save fails. */
+/**
+ * Memory first, so the lead is answered even if the save fails.
+ * @returns {Promise<boolean>} true when this contact was not a lead before.
+ */
 export async function activate(waId, { name = null, text = '' } = {}) {
   const key = conversationKey(waId);
-  if (!key) return;
+  if (!key) return false;
+  const fresh = !activated.has(key);
   activated.add(key);
   try {
-    await (await collection('activations')).updateOne(
+    const res = await (await collection('activations')).updateOne(
       { waId: key },
       { $setOnInsert: { waId: key, name, text, createdAt: new Date() } },
       { upsert: true }
     );
+    return res.upsertedCount > 0;
   } catch (err) {
     console.error('activation save failed:', err.message);
+    return fresh;
+  }
+}
+
+/** Terminal chat only: forget the lead so the trigger phrase starts over. */
+export async function deactivate(waId) {
+  const key = conversationKey(waId);
+  activated.delete(key);
+  try {
+    await (await collection('activations')).deleteOne({ waId: key });
+  } catch (err) {
+    console.error('activation reset failed:', err.message);
   }
 }
 

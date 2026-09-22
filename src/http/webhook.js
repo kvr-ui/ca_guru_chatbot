@@ -101,7 +101,8 @@ export async function handleEvent(payload) {
       await logTurn({ waId, name: event.name, text: event.text, meta: { reason: 'not_triggered', type: event.type } });
       return { skipped: 'not_triggered' };
     }
-    await activate(waId, { name: event.name, text: event.text });
+    // A brand-new lead gets the qualifying questions before anything else.
+    event.justActivated = await activate(waId, { name: event.name, text: event.text });
   }
 
   return inOrder(waId, async () => {

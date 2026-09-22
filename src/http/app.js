@@ -5,6 +5,7 @@ import { router as webhookRouter } from './webhook.js';
 import { ensureIndex, indexStats } from '../kb/kb.js';
 import { activeHandovers, resume } from '../bot/handover.js';
 import { conversation } from '../store/conversations.js';
+import { getProfile } from '../bot/questionnaire.js';
 import { check as checkWacrm } from '../whatsapp/wacrm.js';
 
 export const app = express();
@@ -65,6 +66,13 @@ admin.post('/handover/:waId/resume', async (req, res) => {
 
 admin.get('/conversations/:waId', async (req, res) => {
   res.json(await conversation(conversationKey(req.params.waId)));
+});
+
+/** A lead's answers to the qualifying questions. */
+admin.get('/profiles/:waId', async (req, res) => {
+  const profile = await getProfile(req.params.waId);
+  if (!profile) return res.status(404).json({ error: 'no profile for this contact' });
+  res.json(profile);
 });
 
 app.use('/admin', admin);

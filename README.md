@@ -71,6 +71,15 @@ silent). Try a KB question, an off-topic one (handover), and STOP / START. Then 
 After that it answers everything that contact sends; the list lives in the `activations`
 collection. Everyone else is logged as `not_triggered` and left to the team. Blank = answer all.
 
+**Qualifying questions:** a brand-new lead (first trigger phrase) is asked first-time or
+re-appearing, then down the branch: Sep 26 groups, when the other group is planned, confidence,
+Jan 27 groups, classes, syllabus %, tests. Every path ends with the `CALCULATOR_URL` link. Replies
+are read by number, then keywords, then the model; an unclear reply is asked once more, then
+skipped. A question asked mid-way is answered and the pending question repeated; a handover ends
+the questions, and an unfinished set is dropped after `FLOW_EXPIRY_HOURS`. Answers are kept in
+`profiles` and given to the model as context for later replies. Leads activated before this
+feature keep plain Q&A.
+
 ## How it behaves
 
 | Situation | What happens |
@@ -99,14 +108,16 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" -X POST 127.0.0.1:3007/admin/reinde
 curl -H "Authorization: Bearer $ADMIN_TOKEN" 127.0.0.1:3007/admin/handovers
 curl -H "Authorization: Bearer $ADMIN_TOKEN" -X POST 127.0.0.1:3007/admin/handover/9198XXXXXXXX/resume
 curl -H "Authorization: Bearer $ADMIN_TOKEN" 127.0.0.1:3007/admin/conversations/9198XXXXXXXX
+curl -H "Authorization: Bearer $ADMIN_TOKEN" 127.0.0.1:3007/admin/profiles/9198XXXXXXXX      # qualifying answers
 ```
 
 ## Data
 
 MongoDB database `CA-Guru-bot` (the bot refuses to boot against `CA-Guru-Ai`):
-`messages` (every turn), `handovers`, `optouts`, `sent` (our wamids, 7-day TTL) and
-`webhook_events` (dedupe, 7-day TTL). The bot does not look students up in the product database,
-and no student data is sent to OpenAI beyond the message text itself.
+`messages` (every turn), `handovers`, `optouts`, `activations`, `profiles` (qualifying answers),
+`sent` (our wamids, 7-day TTL) and `webhook_events` (dedupe, 7-day TTL). The bot does not look
+students up in the product database, and no student data is sent to OpenAI beyond the message
+text and a one-line summary of their qualifying answers.
 
 ## Code map
 
@@ -118,6 +129,7 @@ and no student data is sent to OpenAI beyond the message text itself.
 | | `signature.js` | HMAC check (from drip_engine) |
 | `src/bot/` | `handler.js` | The decision tree above; shared by the webhook and `npm run chat` |
 | | `ai.js` | The prompt (rules, price handover, English only) and the grounded answer |
+| | `questionnaire.js` | Qualifying questions for new leads, ending at the calculator link |
 | | `handover.js`, `optout.js` | Chats paused for the team, STOP / START (from wati_chat-bot) |
 | `src/kb/` | `kb.js` | Loads `knowledge/`, embeds it, searches it |
 | `src/whatsapp/` | `wacrm.js` | wacrm client (from drip_engine) |

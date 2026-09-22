@@ -3,7 +3,8 @@ import { answer } from './ai.js';
 import { logTurn, lastTurns } from '../store/conversations.js';
 import { isOptedOut, isOptOutRequest, isOptInRequest, optOut, optIn } from './optout.js';
 import { pauseForHandover, isPaused } from './handover.js';
-import { isTriggerOnly } from './activation.js';
+import { isTriggerOnly, withoutTrigger } from './activation.js';
+import { startFlow, activeFlow, replyToFlow, pendingQuestion, endFlow, profileSummary } from './questionnaire.js';
 
 /**
  * The bot's brain. Transport-agnostic: the wacrm webhook and the terminal chat (npm run chat)
@@ -62,7 +63,7 @@ function overHourlyLimit(waId) {
 
 const silent = (reason, extra = {}) => ({ replies: [], meta: { reason, ...extra } });
 
-async function route({ waId, name, text, type = 'text' }) {
+async function route({ waId, name, text, type = 'text', justActivated = false }) {
   const clean = String(text ?? '').trim();
 
   // STOP is permanent; only START brings the bot back.
@@ -91,31 +92,64 @@ async function route({ waId, name, text, type = 'text' }) {
 
   if (overHourlyLimit(waId)) return silent('rate_limited');
 
-  // Small talk never reaches the knowledge base: "hi" matches nothing there and would hand
-  // every new conversation to the team.
-  // The ad's bare trigger phrase is a hello, not a question for the knowledge base.
-  if (GREETING.test(clean) || isTriggerOnly(clean)) return { replies: [config.bot.welcomeMessage], meta: { reason: 'greeting' } };
-  if (THANKS.test(clean)) return { replies: ["You're welcome! 😊 Ask me anytime."], meta: { reason: 'thanks' } };
-  if (ACK.test(clean)) return silent('ack');
+  // Sent after the answer when the student asked something of their own mid-questionnaire.
+  let followUp = null;
+
+  // A brand-new lead gets the qualifying questions first. A question sent along with the
+  // trigger phrase is answered, then the questions follow.
+  if (justActivated) {
+    const intro = await startFlow(waId, { name });
+    const rest = withoutTrigger(clean);
+    if (!rest || GREETING.test(rest)) return { replies: [intro], meta: { reason: 'flow_start', step: 'status' } };
+    followUp = intro;
+  } else {
+    const flow = await activeFlow(waId);
+    if (flow) {
+      if (GREETING.test(clean) || isTriggerOnly(clean)) {
+        return { replies: [pendingQuestion(flow)], meta: { reason: 'flow_reask', step: flow.step } };
+      }
+      const read = await replyToFlow(flow, clean);
+      if (!read.offScript) return { replies: read.replies, meta: { reason: read.reason, step: read.step } };
+      followUp = `Quick one before we continue:\n\n${pendingQuestion(flow)}`;
+    }
+  }
+
+  if (!followUp) {
+    // Small talk never reaches the knowledge base: "hi" matches nothing there and would hand
+    // every new conversation to the team.
+    // The ad's bare trigger phrase is a hello, not a question for the knowledge base.
+    if (GREETING.test(clean) || isTriggerOnly(clean)) return { replies: [config.bot.welcomeMessage], meta: { reason: 'greeting' } };
+    if (THANKS.test(clean)) return { replies: ["You're welcome! 😊 Ask me anytime."], meta: { reason: 'thanks' } };
+    if (ACK.test(clean)) return silent('ack');
+  }
 
   let result;
   try {
-    result = await answer(clean, { history: await lastTurns(waId) });
+    result = await answer(clean, { history: await lastTurns(waId), profile: await profileSummary(waId) });
   } catch (err) {
     // OpenAI or embeddings down: a person answers rather than the student hearing nothing.
     console.error('answer failed:', err.message);
-    await pauseForHandover(waId);
+    await handOver(waId);
     return { replies: [config.bot.handoverMessage], meta: { reason: 'error_handover', error: err.message, handover: true } };
   }
 
   if (result.handover) {
-    await pauseForHandover(waId);
+    await handOver(waId);
     return {
       replies: [config.bot.handoverMessage],
       meta: { reason: result.reason, sources: result.sources, model: result.model ?? null, handover: true },
     };
   }
-  return { replies: [result.text], meta: { reason: 'answered', sources: result.sources, model: result.model } };
+  return {
+    replies: followUp ? [result.text, followUp] : [result.text],
+    meta: { reason: 'answered', sources: result.sources, model: result.model },
+  };
+}
+
+/** A person takes the chat, so any unfinished questionnaire stops there. */
+async function handOver(waId) {
+  await pauseForHandover(waId);
+  await endFlow(waId, 'handover');
 }
 
 /** Tests only. */

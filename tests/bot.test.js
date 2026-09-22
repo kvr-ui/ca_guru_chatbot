@@ -18,11 +18,13 @@ let base;
 let sends = [];
 let completions = [];
 let modelReply = 'Tap *Forgot password* on the login screen.';
+// What the model says when the questionnaire asks it to read an unclear reply.
+let classifyReply = 'NONE';
 let rateLimitNext = false;
 let wamidSeq = 0;
 
 let app, handleEvent, sign, verifySignature, isPaused, getDb, closeMongo;
-let resetHandover, resetOptOut, resetHandler, resetOutbox, resetActivation, answer, config;
+let resetHandover, resetOptOut, resetHandler, resetOutbox, resetActivation, resetQuestionnaire, answer, config;
 
 const listen = async (server) => {
   server.listen(0, '127.0.0.1');
@@ -40,7 +42,9 @@ before(async () => {
 
       if (req.url.endsWith('/chat/completions')) {
         completions.push(body);
-        res.end(JSON.stringify({ choices: [{ message: { content: modelReply } }], model: 'gpt-test', usage: {} }));
+        const classifying = body.messages[0].content.startsWith('You map a WhatsApp reply');
+        const content = classifying ? classifyReply : modelReply;
+        res.end(JSON.stringify({ choices: [{ message: { content } }], model: 'gpt-test', usage: {} }));
         return;
       }
       if (req.url === '/api/v1/messages') {
@@ -87,6 +91,7 @@ before(async () => {
   ({ isPaused, _resetHandoverCache: resetHandover } = await import('../src/bot/handover.js'));
   ({ _resetOptOutCache: resetOptOut } = await import('../src/bot/optout.js'));
   ({ _resetActivationCache: resetActivation } = await import('../src/bot/activation.js'));
+  ({ _resetQuestionnaireCache: resetQuestionnaire } = await import('../src/bot/questionnaire.js'));
   ({ config } = await import('../src/config.js'));
   ({ _resetHandlerState: resetHandler } = await import('../src/bot/handler.js'));
   ({ _resetOutbox: resetOutbox } = await import('../src/whatsapp/outbox.js'));
@@ -111,12 +116,16 @@ beforeEach(async () => {
   sends = [];
   completions = [];
   modelReply = 'Tap *Forgot password* on the login screen.';
+  classifyReply = 'NONE';
   rateLimitNext = false;
   const db = await getDb();
-  await Promise.all(['messages', 'handovers', 'optouts', 'sent', 'activations'].map((c) => db.collection(c).deleteMany({})));
+  await Promise.all(
+    ['messages', 'handovers', 'optouts', 'sent', 'activations', 'profiles'].map((c) => db.collection(c).deleteMany({}))
+  );
   resetHandover();
   resetOptOut();
   resetActivation();
+  resetQuestionnaire();
   resetHandler();
   resetOutbox();
 });
@@ -213,9 +222,9 @@ test('with a trigger phrase, only leads who sent it get the bot, and they keep i
     assert.equal(other.skipped, 'not_triggered');
     assert.equal(sends.length, 0);
 
-    // The bare phrase gets the welcome, not a knowledge-base handover.
+    // The bare phrase starts the qualifying questions, not a knowledge-base handover.
     await handleEvent(received(ALLOWED[9], 'Your last attempt!'));
-    assert.match(sends[0].text, /CA Guru assistant/);
+    assert.match(sends[0].text, /first time\* or \*re-appearing/);
     assert.equal(completions.length, 0);
 
     const follow = await handleEvent(received(ALLOWED[9], 'How do I reset my password?'));
@@ -257,6 +266,169 @@ test('a photo gets one notice, not one per photo', async () => {
   await handleEvent(received(ALLOWED[7], '', { content_type: 'image' }));
   assert.equal(sends.length, 1);
   assert.match(sends[0].text, /type your question/);
+});
+
+/* ---------------------------- questionnaire ---------------------------- */
+
+const asLead = async (fn) => {
+  config.bot.triggerPhrase = 'YOUR LAST ATTEMPT';
+  config.bot.calculatorUrl = 'https://example.test/calculator';
+  try {
+    await fn();
+  } finally {
+    config.bot.triggerPhrase = '';
+    config.bot.calculatorUrl = '';
+  }
+};
+const lastSent = () => sends.at(-1).text;
+const profileOf = async (waId) => (await getDb()).collection('profiles').findOne({ waId });
+
+test('re-appearing, one group in Sep 26: other group, confidence, then the calculator', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[0];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    assert.match(lastSent(), /first time/);
+    await handleEvent(received(lead, '2'));
+    assert.match(lastSent(), /Sep 26/);
+    await handleEvent(received(lead, 'yes I wrote group 1'));
+    assert.match(lastSent(), /other group/);
+    await handleEvent(received(lead, 'Jan 27'));
+    assert.match(lastSent(), /confident with your preparation/);
+    const done = await handleEvent(received(lead, 'yes'));
+    assert.equal(done.reason, 'flow_done');
+    assert.match(lastSent(), /chances are in Jan 27[\s\S]*example\.test\/calculator/);
+    // Every reply was read without the model.
+    assert.equal(completions.length, 0);
+
+    const profile = await profileOf(lead);
+    assert.deepEqual(profile.answers, { status: 'reappearing', sep26: 'g1', otherWhen: 'jan27', confident: 'yes' });
+    assert.equal(profile.step, null);
+    assert.ok(profile.completedAt);
+  });
+});
+
+test('re-appearing, both groups in Sep 26: asked about confidence, then the calculator', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[1];
+    await handleEvent(received(lead, 'your last attempt'));
+    await handleEvent(received(lead, 're-appearing'));
+    await handleEvent(received(lead, 'g1 and g2'));
+    assert.match(lastSent(), /confident about clearing/);
+    await handleEvent(received(lead, 'I have some doubts'));
+    assert.match(lastSent(), /calculator/);
+    assert.deepEqual((await profileOf(lead)).answers, { status: 'reappearing', sep26: 'both', confident: 'no' });
+  });
+});
+
+test('skipped Sep 26 joins the first-timer questions after picking the Jan 27 group', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[2];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    await handleEvent(received(lead, '2'));
+    await handleEvent(received(lead, '4'));
+    assert.match(lastSent(), /Which group\(s\).*Jan 27/);
+    await handleEvent(received(lead, '3'));
+    assert.match(lastSent(), /taken classes/);
+    await handleEvent(received(lead, 'not yet'));
+    assert.match(lastSent(), /syllabus/);
+    await handleEvent(received(lead, '40%'));
+    assert.match(lastSent(), /any tests/);
+    await handleEvent(received(lead, 'no'));
+    assert.match(lastSent(), /calculator/);
+    const { answers } = await profileOf(lead);
+    assert.deepEqual(answers, {
+      status: 'reappearing', sep26: 'no', jan27Groups: 'both', classes: 'no', syllabus: '25to50', syllabusPercent: 40, tests: 'no',
+    });
+  });
+});
+
+test('unclear replies go to the model; after two misses the question is skipped', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[3];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    classifyReply = '2';
+    await handleEvent(received(lead, 'naan rendavadhu murai ezhudhuren'));
+    assert.match(lastSent(), /Sep 26/);
+    classifyReply = 'NONE';
+    const retry = await handleEvent(received(lead, 'hmm'));
+    assert.equal(retry.reason, 'flow_retry');
+    assert.match(lastSent(), /didn't catch that[\s\S]*Sep 26/);
+    await handleEvent(received(lead, 'hmm again'));
+    assert.match(lastSent(), /taken classes/);
+    assert.equal((await profileOf(lead)).answers.sep26, 'unknown');
+  });
+});
+
+test('a question mid-questionnaire is answered, then the pending question is asked again', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[4];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    const out = await handleEvent(received(lead, 'How do I reset my password?'));
+    assert.equal(out.reason, 'answered');
+    assert.equal(sends.at(-2).text, modelReply);
+    assert.match(lastSent(), /Quick one before we continue[\s\S]*first time/);
+
+    // The phrase again, or a hello, repeats the pending question instead of restarting.
+    assert.equal((await handleEvent(received(lead, 'YOUR LAST ATTEMPT'))).reason, 'flow_reask');
+    assert.equal((await handleEvent(received(lead, 'hi'))).reason, 'flow_reask');
+    assert.match(lastSent(), /first time/);
+  });
+});
+
+test('a question the team must take ends the questionnaire with the handover', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[5];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    await handleEvent(received(lead, 'Explain AS 10?'));
+    assert.match(lastSent(), /passed it to our team/);
+    assert.equal((await profileOf(lead)).endedReason, 'handover');
+  });
+});
+
+test('after the questionnaire the trigger phrase gets the welcome, and the AI sees the answers', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[6];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    for (const reply of ['1', 'yes', '4', 'yes']) await handleEvent(received(lead, reply));
+    assert.match(lastSent(), /calculator/);
+
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    assert.match(lastSent(), /CA Guru assistant/);
+
+    await handleEvent(received(lead, 'How do I reset my password?'));
+    const system = completions.at(-1).messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n');
+    assert.match(system, /ABOUT THIS STUDENT.*first-time CA Inter student.*over 75% of the syllabus/);
+  });
+});
+
+test('a questionnaire left silent past FLOW_EXPIRY_HOURS is dropped', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[7];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    await (await getDb()).collection('profiles').updateOne({ waId: lead }, { $set: { updatedAt: new Date(Date.now() - 25 * 3_600_000) } });
+    resetQuestionnaire();
+    await handleEvent(received(lead, 'reset password'));
+    assert.equal(lastSent(), modelReply);
+  });
+});
+
+test('a lead from before the questionnaire keeps plain Q&A', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[8];
+    await (await getDb()).collection('activations').insertOne({ waId: lead, createdAt: new Date() });
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT'));
+    assert.match(lastSent(), /CA Guru assistant/);
+    assert.equal(await profileOf(lead), null);
+  });
+});
+
+test('a question sent with the trigger phrase is answered, then the questions start', async () => {
+  await asLead(async () => {
+    const lead = ALLOWED[9];
+    await handleEvent(received(lead, 'YOUR LAST ATTEMPT how do I reset my password'));
+    assert.equal(sends.at(-2).text, modelReply);
+    assert.match(lastSent(), /Welcome to CA Guru[\s\S]*first time/);
+  });
 });
 
 /* --------------------------- staff detection --------------------------- */

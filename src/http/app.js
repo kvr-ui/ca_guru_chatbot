@@ -20,6 +20,7 @@ app.get('/health', (_req, res) => {
     ok: true,
     kb: indexStats(),
     allowlistMode: config.bot.allowlist.size > 0,
+    triggerPhrase: config.bot.triggerPhrase || null,
     webhookSigned: Boolean(config.wacrm.webhookSecret),
   });
 });

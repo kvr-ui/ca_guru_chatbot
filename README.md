@@ -66,6 +66,11 @@ the first events arrive before you have the secret, set `WACRM_WEBHOOK_ALLOW_UNS
 silent). Try a KB question, an off-topic one (handover), and STOP / START. Then clear
 `BOT_ALLOWLIST` and `docker compose up -d`.
 
+**Leads only:** the bot stays silent for a contact until they send `BOT_TRIGGER_PHRASE`
+(default `YOUR LAST ATTEMPT`, the ad's prefilled text — any case, anywhere in the message).
+After that it answers everything that contact sends; the list lives in the `activations`
+collection. Everyone else is logged as `not_triggered` and left to the team. Blank = answer all.
+
 ## How it behaves
 
 | Situation | What happens |
@@ -109,7 +114,7 @@ and no student data is sent to OpenAI beyond the message text itself.
 |---|---|---|
 | `src/` | `config.js` | Env vars, defaults, and the startup check |
 | `src/http/` | `app.js` | Express app: `/health` and the token-guarded `/admin` routes |
-| | `webhook.js` | Signed webhook, dedupe, allowlist, one-at-a-time processing per contact |
+| | `webhook.js` | Signed webhook, dedupe, allowlist, trigger-phrase gate, one-at-a-time processing per contact |
 | | `signature.js` | HMAC check (from drip_engine) |
 | `src/bot/` | `handler.js` | The decision tree above; shared by the webhook and `npm run chat` |
 | | `ai.js` | The prompt (rules, price handover, English only) and the grounded answer |

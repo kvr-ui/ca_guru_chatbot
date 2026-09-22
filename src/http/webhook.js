@@ -11,6 +11,7 @@ import { isNewEvent } from '../store/dedup.js';
 import { handleMessage } from '../bot/handler.js';
 import { deliver, onMessageSent } from '../whatsapp/outbox.js';
 import { logTurn } from '../store/conversations.js';
+import { triggerEnabled, hasTrigger, isActivated, activate } from '../bot/activation.js';
 
 export const router = express.Router();
 
@@ -92,6 +93,15 @@ export async function handleEvent(payload) {
   if (config.bot.allowlist.size && !config.bot.allowlist.has(waId)) {
     await logTurn({ waId, name: event.name, text: event.text, meta: { reason: 'not_allowlisted', type: event.type } });
     return { skipped: 'not_allowlisted' };
+  }
+
+  // Only leads who sent the trigger phrase get the bot; everyone else stays with the team.
+  if (triggerEnabled() && !(await isActivated(waId))) {
+    if (!hasTrigger(event.text)) {
+      await logTurn({ waId, name: event.name, text: event.text, meta: { reason: 'not_triggered', type: event.type } });
+      return { skipped: 'not_triggered' };
+    }
+    await activate(waId, { name: event.name, text: event.text });
   }
 
   return inOrder(waId, async () => {

@@ -92,6 +92,9 @@ export const config = {
     // Non-empty = only these numbers are answered; everyone else is logged and ignored.
     // Clear it to go live.
     allowlist,
+    // The bot only switches on for a contact once they send this phrase (the ad's prefilled
+    // text); it then answers everything they send. Set it blank to answer every contact.
+    triggerPhrase: str('BOT_TRIGGER_PHRASE', 'YOUR LAST ATTEMPT'),
     historyTurns: num('HISTORY_TURNS', 6),
     historyHours: num('HISTORY_HOURS', 24),
     handoverMs: num('HANDOVER_HOURS', 12) * 3_600_000,

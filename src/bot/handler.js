@@ -3,6 +3,7 @@ import { answer } from './ai.js';
 import { logTurn, lastTurns } from '../store/conversations.js';
 import { isOptedOut, isOptOutRequest, isOptInRequest, optOut, optIn } from './optout.js';
 import { pauseForHandover, isPaused } from './handover.js';
+import { isTriggerOnly } from './activation.js';
 
 /**
  * The bot's brain. Transport-agnostic: the wacrm webhook and the terminal chat (npm run chat)
@@ -92,7 +93,8 @@ async function route({ waId, name, text, type = 'text' }) {
 
   // Small talk never reaches the knowledge base: "hi" matches nothing there and would hand
   // every new conversation to the team.
-  if (GREETING.test(clean)) return { replies: [config.bot.welcomeMessage], meta: { reason: 'greeting' } };
+  // The ad's bare trigger phrase is a hello, not a question for the knowledge base.
+  if (GREETING.test(clean) || isTriggerOnly(clean)) return { replies: [config.bot.welcomeMessage], meta: { reason: 'greeting' } };
   if (THANKS.test(clean)) return { replies: ["You're welcome! 😊 Ask me anytime."], meta: { reason: 'thanks' } };
   if (ACK.test(clean)) return silent('ack');
 

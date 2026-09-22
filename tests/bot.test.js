@@ -22,7 +22,7 @@ let rateLimitNext = false;
 let wamidSeq = 0;
 
 let app, handleEvent, sign, verifySignature, isPaused, getDb, closeMongo;
-let resetHandover, resetOptOut, resetHandler, resetOutbox, answer;
+let resetHandover, resetOptOut, resetHandler, resetOutbox, resetActivation, answer, config;
 
 const listen = async (server) => {
   server.listen(0, '127.0.0.1');
@@ -74,6 +74,8 @@ before(async () => {
     WACRM_WEBHOOK_SECRET: SECRET,
     WACRM_WEBHOOK_ALLOW_UNSIGNED: 'false',
     BOT_ALLOWLIST: ALLOWED.join(','),
+    // Off by default here; the trigger test switches it on.
+    BOT_TRIGGER_PHRASE: '',
     STAFF_CONFIRM_MS: '30',
     BOT_MAX_MESSAGES_PER_HOUR: '30',
     ADMIN_TOKEN: 'admin-test',
@@ -84,6 +86,8 @@ before(async () => {
   ({ sign, verifySignature } = await import('../src/http/signature.js'));
   ({ isPaused, _resetHandoverCache: resetHandover } = await import('../src/bot/handover.js'));
   ({ _resetOptOutCache: resetOptOut } = await import('../src/bot/optout.js'));
+  ({ _resetActivationCache: resetActivation } = await import('../src/bot/activation.js'));
+  ({ config } = await import('../src/config.js'));
   ({ _resetHandlerState: resetHandler } = await import('../src/bot/handler.js'));
   ({ _resetOutbox: resetOutbox } = await import('../src/whatsapp/outbox.js'));
   ({ answer } = await import('../src/bot/ai.js'));
@@ -109,9 +113,10 @@ beforeEach(async () => {
   modelReply = 'Tap *Forgot password* on the login screen.';
   rateLimitNext = false;
   const db = await getDb();
-  await Promise.all(['messages', 'handovers', 'optouts', 'sent'].map((c) => db.collection(c).deleteMany({})));
+  await Promise.all(['messages', 'handovers', 'optouts', 'sent', 'activations'].map((c) => db.collection(c).deleteMany({})));
   resetHandover();
   resetOptOut();
+  resetActivation();
   resetHandler();
   resetOutbox();
 });
@@ -199,6 +204,29 @@ test('numbers outside BOT_ALLOWLIST are logged but never answered', async () => 
   assert.equal(sends.length, 0);
   const logged = await (await getDb()).collection('messages').findOne({ waId: '918888888888' });
   assert.equal(logged.reason, 'not_allowlisted');
+});
+
+test('with a trigger phrase, only leads who sent it get the bot, and they keep it', async () => {
+  config.bot.triggerPhrase = 'YOUR LAST ATTEMPT';
+  try {
+    const other = await handleEvent(received(ALLOWED[10], 'How do I reset my password?'));
+    assert.equal(other.skipped, 'not_triggered');
+    assert.equal(sends.length, 0);
+
+    // The bare phrase gets the welcome, not a knowledge-base handover.
+    await handleEvent(received(ALLOWED[9], 'Your last attempt!'));
+    assert.match(sends[0].text, /CA Guru assistant/);
+    assert.equal(completions.length, 0);
+
+    const follow = await handleEvent(received(ALLOWED[9], 'How do I reset my password?'));
+    assert.equal(follow.reason, 'answered');
+
+    // Anywhere in the message counts; "attempt" alone does not.
+    assert.equal((await handleEvent(received(ALLOWED[8], 'my attempt is may'))).skipped, 'not_triggered');
+    assert.equal((await handleEvent(received(ALLOWED[8], 'Hi, tell me about YOUR LAST ATTEMPT kit'))).skipped, undefined);
+  } finally {
+    config.bot.triggerPhrase = '';
+  }
 });
 
 test('a repeated event is handled once', async () => {

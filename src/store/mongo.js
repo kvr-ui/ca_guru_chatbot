@@ -21,6 +21,7 @@ async function connect() {
         db.collection('messages').createIndex({ createdAt: -1 }),
         db.collection('handovers').createIndex({ waId: 1 }, { unique: true }),
         db.collection('optouts').createIndex({ waId: 1 }, { unique: true }),
+        db.collection('activations').createIndex({ waId: 1 }, { unique: true }),
         // wacrm may deliver an event twice; a week of ids is plenty.
         db.collection('webhook_events').createIndex({ eventId: 1 }, { unique: true }),
         db.collection('webhook_events').createIndex({ createdAt: 1 }, { expireAfterSeconds: WEEK }),
